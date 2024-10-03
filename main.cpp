@@ -23,6 +23,36 @@ void print_field(char *pfield)
     }
 }
 
+int rotate(int x, int y, int rotation)
+{
+    switch (rotation)
+    {
+    case 0:
+        return x + y * 4;
+        break;
+
+    case 1: // 90 degrees
+        return 12 + y - (x * 4);
+        break;
+
+    case 2: // 180 degrees
+        return 15 - x - y * 4;
+        break;
+
+    case 3: // 270 degrees
+        return 3 + x * 4 - y;
+        break;
+
+    default:
+        break;
+    }
+}
+
+int convert2DTo1D(int x, int y, int width)
+{
+    return x + y * width;
+}
+
 int main()
 {
     srand(getpid());
@@ -50,50 +80,45 @@ int main()
     // SETUP TETROMINOS =============================
     std::string tetrominos[7];
 
-    tetrominos[0].append("X...");
-    tetrominos[0].append("X...");
-    tetrominos[0].append("X...");
-    tetrominos[0].append("X...");
+    tetrominos[0].append(".X..");
+    tetrominos[0].append(".X..");
+    tetrominos[0].append(".X..");
+    tetrominos[0].append(".X..");
 
-    tetrominos[1].append("X...");
-    tetrominos[1].append("X...");
-    tetrominos[1].append("XX..");
+    tetrominos[1].append(".X..");
+    tetrominos[1].append(".X..");
+    tetrominos[1].append(".XX.");
     tetrominos[1].append("....");
 
-    tetrominos[2].append(".X..");
-    tetrominos[2].append(".X..");
-    tetrominos[2].append("XX..");
+    tetrominos[2].append("..X.");
+    tetrominos[2].append("..X.");
+    tetrominos[2].append(".XX.");
     tetrominos[2].append("....");
 
-    tetrominos[3].append("XXX.");
-    tetrominos[3].append(".X..");
     tetrominos[3].append("....");
+    tetrominos[3].append(".XXX");
+    tetrominos[3].append("..X.");
     tetrominos[3].append("....");
 
-    tetrominos[4].append("XX..");
-    tetrominos[4].append("XX..");
     tetrominos[4].append("....");
+    tetrominos[4].append(".XX.");
+    tetrominos[4].append(".XX.");
     tetrominos[4].append("....");
 
-    tetrominos[5].append("XX..");
+    tetrominos[5].append("....");
     tetrominos[5].append(".XX.");
-    tetrominos[5].append("....");
+    tetrominos[5].append("..XX");
     tetrominos[5].append("....");
 
+    tetrominos[6].append("....");
     tetrominos[6].append(".XX.");
     tetrominos[6].append("XX..");
     tetrominos[6].append("....");
-    tetrominos[6].append("....");
 
-    int startX = 2;
-    int startY = 0;
-    for (int y = 0; y < 4; y++)
-    {
-        for (int x = 0; x < 4; x++)
-        {
-            pfield[(startY + y) * PFIELD_WIDTH + startX + x] = tetrominos[3][y * 4 + x];
-        }
-    }
+    int posX = 4;
+    int posY = 0;
+    int rot = 0;
+    bool rotationKeyPressed = false;
 
     print_field(pfield);
 
@@ -110,7 +135,28 @@ int main()
 
         // USER INPUT ==============================
 
+        if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && rotationKeyPressed)
+        {
+            rotationKeyPressed = false;
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && !rotationKeyPressed)
+        {
+            rotationKeyPressed = true;
+            rot++;
+            if (rot > 3)
+            {
+                rot = 0;
+            }
+        }
+
         // GAME LOGIC ==============================
+        for (int y = 0; y < 4; y++)
+        {
+            for (int x = 0; x < 4; x++)
+            {
+                pfield[convert2DTo1D(posX + x, posY + y, PFIELD_WIDTH)] = tetrominos[3][rotate(x, y, rot)];
+            }
+        }
 
         // DRAW SCREEN =============================
 
