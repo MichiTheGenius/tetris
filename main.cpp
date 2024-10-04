@@ -13,6 +13,8 @@
 #define Y_OFFSET 50
 #define STANDARD_TICK 1.0f
 #define FAST_TICK 0.05f
+#define SCORE_FONT_X 350
+#define SCORE_FONT_Y 200
 
 std::string tetrominos[7];
 char pfield[PFIELD_WIDTH * PFIELD_HEIGHT];
@@ -172,11 +174,14 @@ int main()
     int pos_y = 0;
     int rot = 0;
     int current_tetromino = rand() % 7;
+    int next_tetromino;
+    bool set_next_tetromino = false;
     bool rotation_key_pressed = false;
     bool left_pressed = false;
     bool right_pressed = false;
     bool falling_tick = false;
     float falling_tick_time = 1.0f;
+    int score = 0;
 
     tetrominos[0].append(".X..");
     tetrominos[0].append(".X..");
@@ -231,6 +236,18 @@ int main()
 
     // SETUP CLOCK ==================================
     sf::Clock clock;
+    // SETUP TEXT =====)=============================
+    sf::Text score_text;
+    score_text.setPosition(SCORE_FONT_X, SCORE_FONT_Y);
+    score_text.setCharacterSize(50);
+    score_text.setFillColor(sf::Color::White);
+    std::string text = "SCORE: ";
+    text.append(std::to_string(score));
+    score_text.setString(text);
+
+    sf::Font font;
+    font.loadFromFile("Kino-Regular.ttf");
+    score_text.setFont(font);
 
     while (window.isOpen())
     {
@@ -274,6 +291,12 @@ int main()
         }
 
         // GAME LOGIC ==============================
+
+        if (!set_next_tetromino)
+        {
+            set_next_tetromino = true;
+            next_tetromino = rand() % 7;
+        }
 
         // ROTATION ==============
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && !rotation_key_pressed)
@@ -356,19 +379,22 @@ int main()
                 {
                     int line_count = get_line_count(first_full_line);
                     std::cout << "line_count: " << line_count << std::endl;
+
+                    // remove lines
+                    // move all pieces on board down
                     remove_lines(first_full_line, line_count);
+                    // increase score
+                    score += line_count * 100;
+                    text = "SCORE: ";
+                    text.append(std::to_string(score));
+                    score_text.setString(text);
                 }
-
-                // remove lines if necesssary
-
-                // move all pieces on board down
-
-                // TODO increase score if necessary
 
                 // create new random teromino
                 pos_x = 4;
                 pos_y = 0;
-                current_tetromino = rand() % 7;
+                current_tetromino = next_tetromino;
+                set_next_tetromino = false;
             }
         }
 
@@ -377,6 +403,7 @@ int main()
         window.clear(sf::Color::Black);
 
         // DRAW TETROMINOS =======
+        // falling tetrominos
         for (int tetro_y = 0; tetro_y < 4; tetro_y++)
         {
             for (int tetro_x = 0; tetro_x < 4; tetro_x++)
@@ -387,6 +414,22 @@ int main()
                     sf::RectangleShape tetro_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
                     tetro_rect.setFillColor(tetromino_colors[current_tetromino]);
                     tetro_rect.setPosition(X_OFFSET + (pos_x + tetro_x) * GRID_SIZE, Y_OFFSET + (pos_y + tetro_y) * GRID_SIZE);
+                    window.draw(tetro_rect);
+                }
+            }
+        }
+
+        // next tetromino preview
+        for (int tetro_y = 0; tetro_y < 4; tetro_y++)
+        {
+            for (int tetro_x = 0; tetro_x < 4; tetro_x++)
+            {
+                int current_tetro_pos = rotate(tetro_x, tetro_y, 0);
+                if (tetrominos[next_tetromino][current_tetro_pos] == 'X')
+                {
+                    sf::RectangleShape tetro_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
+                    tetro_rect.setFillColor(tetromino_colors[next_tetromino]);
+                    tetro_rect.setPosition(SCORE_FONT_X +  tetro_x * GRID_SIZE, SCORE_FONT_Y - 100 + tetro_y * GRID_SIZE);
                     window.draw(tetro_rect);
                 }
             }
@@ -413,6 +456,9 @@ int main()
                 }
             }
         }
+
+        // DRAW SCORE TEXT =======
+        window.draw(score_text);
 
         window.display();
         // print_field();
