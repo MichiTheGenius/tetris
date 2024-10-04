@@ -25,6 +25,7 @@ std::map<int, sf::Color> tetromino_colors{
     {4, sf::Color::Yellow},
     {5, sf::Color::Red},
     {6, sf::Color::Green},
+    {7, sf::Color::White}, // line clear
 };
 
 void print_field()
@@ -86,11 +87,11 @@ bool does_tetromino_fit(int current_tetromino, int rot, int pos_x, int pos_y)
     return true;
 }
 
-int get_line_count()
+int get_line_count(int starting_line)
 {
     int line_count = 0;
     int pieces_per_line;
-    for (int y = PFIELD_HEIGHT - 2; y > PFIELD_HEIGHT - 4 - 2; y--)
+    for (int y = starting_line; y > starting_line - 4; y--)
     {
         pieces_per_line = 0;
         for (int x = 1; x < PFIELD_WIDTH - 1; x++)
@@ -106,6 +107,57 @@ int get_line_count()
         }
     }
     return line_count;
+}
+
+// 0 for empty, 1 for full
+int find_first_full_line()
+{
+    int spaces;
+    for (int y = PFIELD_HEIGHT - 2; y > 1; y--)
+    {
+        spaces = 0;
+        for (int x = 1; x < PFIELD_WIDTH - 1; x++)
+        {
+            if (pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '.')
+            {
+                spaces++;
+            }
+        }
+        if (spaces == PFIELD_WIDTH - 2) // subtract 2 because of the walls on each side
+        {
+            return y;
+        }
+    }
+    return -1;
+}
+
+void remove_lines(int starting_line, int count)
+{
+    for (int y = starting_line; y > starting_line - count; y--)
+    {
+        for (int x = 1; x < PFIELD_WIDTH - 1; x++)
+        {
+            if (pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '.')
+            {
+                pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] = '.';
+            }
+        }
+    }
+    std::cout << "=== field after removing ===" << std::endl;
+    print_field();
+    std::cout << "\n\n";
+
+    // move all lines down
+    for (int y = starting_line; y > count; y--)
+    {
+        for (int x = 1; x < PFIELD_WIDTH - 1; x++)
+        {
+            pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] = pfield[convert_2D_to_1D(x, y - count, PFIELD_WIDTH)];
+        }
+    }
+    std::cout << "=== field after moving down ===" << std::endl;
+    print_field();
+    std::cout << "\n\n";
 }
 
 int main()
@@ -231,7 +283,7 @@ int main()
             {
                 rot = !rot;
             }
-            else if (does_tetromino_fit(current_tetromino, !rot, pos_x, pos_y) && (current_tetromino == 1 || current_tetromino == 2 || current_tetromino == 3)) // T, L, J tetrominos have full rotation; O tetromino does not rotate
+            else if (does_tetromino_fit(current_tetromino, rot + 1, pos_x, pos_y) && (current_tetromino == 1 || current_tetromino == 2 || current_tetromino == 3)) // T, L, J tetrominos have full rotation; O tetromino does not rotate
             {
                 // correct the rotation of the T tetromino, so that it pivots around one fixed point
                 if (current_tetromino == 3)
@@ -294,8 +346,22 @@ int main()
                     }
                 }
 
-                // TODO check if line is created
-                std::cout << "line count: " << get_line_count() << std::endl;
+                // check if line is created
+                int first_full_line = find_first_full_line();
+                std::cout << "first_full_line: " << first_full_line << std::endl;
+                std::cout << "=== field before removing ===" << std::endl;
+                print_field();
+                std::cout << "\n\n";
+                if (first_full_line != -1)
+                {
+                    int line_count = get_line_count(first_full_line);
+                    std::cout << "line_count: " << line_count << std::endl;
+                    remove_lines(first_full_line, line_count);
+                }
+
+                // remove lines if necesssary
+
+                // move all pieces on board down
 
                 // TODO increase score if necessary
 
@@ -350,6 +416,7 @@ int main()
 
         window.display();
         // print_field();
+        // std::cout << "\n\n";
     }
     return 0;
 }
