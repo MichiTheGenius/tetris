@@ -3,6 +3,8 @@
 #include <random>
 #include <unistd.h>
 #include <map>
+#include <thread>
+using namespace std::chrono_literals;
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -15,6 +17,8 @@
 #define FAST_TICK 0.05f
 #define SCORE_FONT_X 350
 #define SCORE_FONT_Y 200
+#define LINE_CLEAR_TIME 500ms
+#define LINE_CLEAR_COLOR sf::Color(96, 96, 189)
 
 std::string tetrominos[7];
 char pfield[PFIELD_WIDTH * PFIELD_HEIGHT];
@@ -27,7 +31,6 @@ std::map<int, sf::Color> tetromino_colors{
     {4, sf::Color::Yellow},
     {5, sf::Color::Red},
     {6, sf::Color::Green},
-    {7, sf::Color::White}, // line clear
 };
 
 void print_field()
@@ -141,14 +144,21 @@ void remove_lines(int starting_line, int count)
         {
             if (pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '.')
             {
-                pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] = '.';
+                pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] = '=';
             }
         }
     }
-    std::cout << "=== field after removing ===" << std::endl;
-    print_field();
-    std::cout << "\n\n";
+    // std::cout << "=== field after removing ===" << std::endl;
+    // print_field();
+    // std::cout << "\n\n";
 
+    // std::cout << "=== field after moving down ===" << std::endl;
+    // print_field();
+    // std::cout << "\n\n";
+}
+
+void move_lines_down(int starting_line, int count)
+{
     // move all lines down
     for (int y = starting_line; y > count; y--)
     {
@@ -157,9 +167,18 @@ void remove_lines(int starting_line, int count)
             pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] = pfield[convert_2D_to_1D(x, y - count, PFIELD_WIDTH)];
         }
     }
-    std::cout << "=== field after moving down ===" << std::endl;
-    print_field();
-    std::cout << "\n\n";
+}
+
+bool check_game_over()
+{
+    for (int x = 1; x < PFIELD_WIDTH - 1; x++)
+    {
+        if (pfield[convert_2D_to_1D(x, 2, PFIELD_WIDTH)] != '.')
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 int main()
@@ -182,6 +201,8 @@ int main()
     bool falling_tick = false;
     float falling_tick_time = 1.0f;
     int score = 0;
+    int first_full_line = -1;
+    int line_count = 0;
 
     tetrominos[0].append(".X..");
     tetrominos[0].append(".X..");
@@ -235,16 +256,15 @@ int main()
     }
 
     // SETUP CLOCK ==================================
-    sf::Clock clock;
+    sf::Clock falling_clock;
     // SETUP TEXT =====)=============================
     sf::Text score_text;
-    score_text.setPosition(SCORE_FONT_X, SCORE_FONT_Y);
-    score_text.setCharacterSize(50);
-    score_text.setFillColor(sf::Color::White);
     std::string text = "SCORE: ";
     text.append(std::to_string(score));
     score_text.setString(text);
-
+    score_text.setPosition(SCORE_FONT_X, SCORE_FONT_Y);
+    score_text.setCharacterSize(50);
+    score_text.setFillColor(sf::Color::White);
     sf::Font font;
     font.loadFromFile("Kino-Regular.ttf");
     score_text.setFont(font);
@@ -260,11 +280,12 @@ int main()
             }
         }
         // TIMING ==================================
-        sf::Time elapsed_time = clock.getElapsedTime();
+
+        sf::Time elapsed_time = falling_clock.getElapsedTime();
         if (elapsed_time.asSeconds() >= falling_tick_time)
         {
             falling_tick = true;
-            clock.restart();
+            falling_clock.restart();
         }
 
         // USER INPUT ==============================
@@ -291,6 +312,8 @@ int main()
         }
 
         // GAME LOGIC ==============================
+        line_count = 0;
+        first_full_line = -1;
 
         if (!set_next_tetromino)
         {
@@ -369,30 +392,34 @@ int main()
                     }
                 }
 
+                bool game_over = check_game_over();
+                if (game_over)
+                {
+                    std::cout << "You Lost!!!" << std::endl;
+                    std::cout << "Your final score was: " << score << std::endl;
+                    window.close();
+                }
+
                 // check if line is created
-                int first_full_line = find_first_full_line();
-                std::cout << "first_full_line: " << first_full_line << std::endl;
-                std::cout << "=== field before removing ===" << std::endl;
-                print_field();
-                std::cout << "\n\n";
+                first_full_line = find_first_full_line();
+                // std::cout << "first_full_line: " << first_full_line << std::endl;
+                // std::cout << "=== field before removing ===" << std::endl;
+                // print_field();
+                // std::cout << "\n\n";
                 if (first_full_line != -1)
                 {
-                    int line_count = get_line_count(first_full_line);
-                    std::cout << "line_count: " << line_count << std::endl;
+                    line_count = get_line_count(first_full_line);
+                    // std::cout << "line_count: " << line_count << std::endl;
 
                     // remove lines
                     // move all pieces on board down
                     remove_lines(first_full_line, line_count);
-                    // increase score
-                    score += line_count * 100;
-                    text = "SCORE: ";
-                    text.append(std::to_string(score));
-                    score_text.setString(text);
                 }
 
                 // create new random teromino
                 pos_x = 4;
                 pos_y = 0;
+                rot = 0;
                 current_tetromino = next_tetromino;
                 set_next_tetromino = false;
             }
@@ -429,17 +456,25 @@ int main()
                 {
                     sf::RectangleShape tetro_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
                     tetro_rect.setFillColor(tetromino_colors[next_tetromino]);
-                    tetro_rect.setPosition(SCORE_FONT_X +  tetro_x * GRID_SIZE, SCORE_FONT_Y - 100 + tetro_y * GRID_SIZE);
+                    tetro_rect.setPosition(SCORE_FONT_X + tetro_x * GRID_SIZE, SCORE_FONT_Y - 100 + tetro_y * GRID_SIZE);
                     window.draw(tetro_rect);
                 }
             }
         }
 
+        // playing field
         for (int y = 0; y < PFIELD_HEIGHT; y++)
         {
             for (int x = 0; x < PFIELD_WIDTH; x++)
             {
-                if (pfield[y * PFIELD_WIDTH + x] == '#')
+                if (pfield[y * PFIELD_WIDTH + x] == '=')
+                {
+                    sf::RectangleShape line_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
+                    line_rect.setFillColor(LINE_CLEAR_COLOR); // olive green
+                    line_rect.setPosition(X_OFFSET + x * GRID_SIZE, Y_OFFSET + y * GRID_SIZE);
+                    window.draw(line_rect);
+                }
+                else if (pfield[y * PFIELD_WIDTH + x] == '#')
                 {
                     sf::RectangleShape border_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
                     border_rect.setFillColor(sf::Color::White);
@@ -449,7 +484,7 @@ int main()
                 else if (pfield[y * PFIELD_WIDTH + x] >= 'A')
                 {
                     sf::RectangleShape piece_rect(sf::Vector2f(GRID_SIZE, GRID_SIZE));
-                    int tetro_color_index = pfield[y * PFIELD_WIDTH + x] - 65;
+                    int tetro_color_index = pfield[y * PFIELD_WIDTH + x] - 'A';
                     piece_rect.setFillColor(tetromino_colors[tetro_color_index]);
                     piece_rect.setPosition(X_OFFSET + x * GRID_SIZE, Y_OFFSET + y * GRID_SIZE);
                     window.draw(piece_rect);
@@ -461,8 +496,21 @@ int main()
         window.draw(score_text);
 
         window.display();
-        // print_field();
-        // std::cout << "\n\n";
+
+        // line clear lines
+        if (line_count > 0)
+        {
+            std::this_thread::sleep_for(LINE_CLEAR_TIME);
+            move_lines_down(first_full_line, line_count);
+            // increase score
+            score += line_count * 100 * line_count;
+            text = "SCORE: ";
+            text.append(std::to_string(score));
+            score_text.setString(text);
+        }
+
+        //print_field();
+        //std::cout << "\n\n";
     }
     return 0;
 }
