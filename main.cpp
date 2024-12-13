@@ -45,6 +45,13 @@ void print_field()
     }
 }
 
+/*
+ * the rotate function works by changing the indexing of the 4*4 tetromino array.
+ * if the rotation argument is 0 the function simply converts 2-dimensional coordinates into a 1-dimensional index.
+ * if the rotation argument is 1 the function rotates all the indices of the 4*4 tetromino box by 90 degrees which as a result changes where the individual tetromino blocks are located.
+ * the same goes for 180 and 270 degree rotations.
+ * example: a block is at the index 1; with no rotation the block is located at (1,0). With 90 degree rotation the same block is located at (3,1)
+ */
 int rotate(int x, int y, int rotation)
 {
     switch (rotation)
@@ -92,48 +99,47 @@ bool does_tetromino_fit(int current_tetromino, int rot, int pos_x, int pos_y)
     return true;
 }
 
-int get_line_count(int starting_line)
+bool line_full(int line)
 {
-    int line_count = 0;
-    int pieces_per_line;
-    for (int y = starting_line; y > starting_line - 4; y--)
+    int pieces_per_line = 0;
+
+    for (int x = 1; x < PFIELD_WIDTH - 1; x++)
     {
-        pieces_per_line = 0;
-        for (int x = 1; x < PFIELD_WIDTH - 1; x++)
+        if (pfield[convert_2D_to_1D(x, line, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, line, PFIELD_WIDTH)] != '.')
         {
-            if (pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '.')
-            {
-                pieces_per_line++;
-            }
-        }
-        if (pieces_per_line == PFIELD_WIDTH - 2) // subtract 2 because of the walls on each side
-        {
-            line_count++;
+            pieces_per_line++;
         }
     }
-    return line_count;
+    if (pieces_per_line == PFIELD_WIDTH - 2) // subtract 2 because of the walls on each side
+    {
+        return true;
+    }
+    return false;
 }
 
-// 0 for empty, 1 for full
 int find_first_full_line()
 {
-    int spaces;
     for (int y = PFIELD_HEIGHT - 2; y > 1; y--)
     {
-        spaces = 0;
-        for (int x = 1; x < PFIELD_WIDTH - 1; x++)
-        {
-            if (pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '#' && pfield[convert_2D_to_1D(x, y, PFIELD_WIDTH)] != '.')
-            {
-                spaces++;
-            }
-        }
-        if (spaces == PFIELD_WIDTH - 2) // subtract 2 because of the walls on each side
+        if (line_full(y))
         {
             return y;
         }
     }
     return -1;
+}
+
+int get_line_count(int starting_line)
+{
+    int line_count = 0;
+    for (int y = starting_line; y > starting_line - 4; y--)
+    {
+        if (line_full(y))
+        {
+            line_count++;
+        }
+    }
+    return line_count;
 }
 
 void remove_lines(int starting_line, int count)
@@ -173,7 +179,7 @@ bool check_game_over()
 {
     for (int x = 1; x < PFIELD_WIDTH - 1; x++)
     {
-        if (pfield[convert_2D_to_1D(x, 2, PFIELD_WIDTH)] != '.')
+        if (pfield[convert_2D_to_1D(x, 1, PFIELD_WIDTH)] != '.')
         {
             return true;
         }
@@ -198,9 +204,12 @@ int main()
     bool rotation_key_pressed = false;
     bool left_pressed = false;
     bool right_pressed = false;
+
     bool falling_tick = false;
     float falling_tick_time = 1.0f;
+
     int score = 0;
+
     int first_full_line = -1;
     int line_count = 0;
 
@@ -402,18 +411,21 @@ int main()
 
                 // check if line is created
                 first_full_line = find_first_full_line();
-                // std::cout << "first_full_line: " << first_full_line << std::endl;
-                // std::cout << "=== field before removing ===" << std::endl;
-                // print_field();
-                // std::cout << "\n\n";
                 if (first_full_line != -1)
                 {
+                    std::cout << "first_full_line: " << first_full_line << std::endl;
+                    std::cout << "=== field before removing ===" << std::endl;
+                    print_field();
+                    std::cout << "\n\n";
                     line_count = get_line_count(first_full_line);
                     // std::cout << "line_count: " << line_count << std::endl;
 
                     // remove lines
                     // move all pieces on board down
                     remove_lines(first_full_line, line_count);
+                    std::cout << "=== field after removing ===" << std::endl;
+                    print_field();
+                    std::cout << "\n\n";
                 }
 
                 // create new random teromino
@@ -502,6 +514,9 @@ int main()
         {
             std::this_thread::sleep_for(LINE_CLEAR_TIME);
             move_lines_down(first_full_line, line_count);
+            std::cout << "=== field after moving down ===" << std::endl;
+            print_field();
+            std::cout << "\n\n";
             // increase score
             score += line_count * 100 * line_count;
             text = "SCORE: ";
@@ -509,8 +524,8 @@ int main()
             score_text.setString(text);
         }
 
-        //print_field();
-        //std::cout << "\n\n";
+        // print_field();
+        // std::cout << "\n\n";
     }
     return 0;
 }
